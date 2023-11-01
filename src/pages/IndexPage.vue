@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import Zoomer from '@/components/Zoomer.vue'
-import SitePageTree from '@/components/SitePageTree.vue'
-import { TreeNode } from '@/types/TreeTypes';
+import CollectionEditor from '@/components/CollectionEditor.vue'
+import { SelectDropdown, Dropdown } from '@/components/crud'
+import ajax from "@/accessories/ajax";
 
 // useRoute, useHead, and HelloWorld are automatically imported. See vite.config.ts for details.
 const route = useRoute()
@@ -18,116 +18,155 @@ useHead({
       content: route.meta.title,
     },
   ],
-})
+});
 
-const BUILD_DATE = import.meta.env.VITE_APP_BUILD_EPOCH
-  ? new Date(Number(import.meta.env.VITE_APP_BUILD_EPOCH))
-  : undefined
-const thisYear = new Date().getFullYear()
+let selectedSiteId = ref<number>(0);
+let selectedCollectionId = ref<number>(0);
+let sites = ref<Array<any>>([]);
+let collections = ref<Array<any>>([]);
+let cols = ref<Array<any>>([]);
 
-let siteMap:TreeNode = {
-  name: "Home Page", 
-  id: 1,
-  components: [
-    
-    {name:"container", 'description' : "I have your page dynamic content"},
-    {name:"container2", 'description' : "I have your page dynamic content"},
-    {name:"container3", 'description' : "I have your page dynamic content"},
-    {name:"container4", 'description' : "I have your page dynamic content"},
-    
-  ],
-  top_component : {name:"header", 'description' : "I contain the logo and nav bar"},
-  bottom_component : {name:"footer", 'description' : "I am your page footer"},
-    
-    children: [
+// Site Ids list
+async function listOfSites() {
+  try {
+    let aj = new (ajax as any)();
+    let data = [
       {
-        name: "About Us", 
-        id: 2,
+        endPoint: "sites",
       },
-      {
-        name: "Contact Us", 
-        id: 3,
-      },
-      
-      {
-        name: "Cart", 
-        id: 3,
-        children: [
-          {
-            name: "Shipping", 
-            id: 4,
-            
-          },
-          {
-            name: "Payment", 
-            id: 5,
-          },
-          {
-            name: "Checkout", 
-            id: 6,
-          },
-        ]
+
+    ];
+
+    let result = await aj.post("/CallApi.php", data);
+
+    if (result.status == 200) {
+      console.log(result.data.sites);
+      sites.value = [];
+      let SiteDetails = [];
+      for (let i in result.data.sites) {
+        let st = result.data.sites[i];
+        SiteDetails.push({ value: st.id, label: st.displayName })
       }
-    ]
-  }
-
-  const handleChangeInTree = (tNode:TreeNode) => {
-    console.log(tNode, "Seeing change from root page");
-    siteMap = tNode;
-  }
-
-  const downloadJson = () => {
-    let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(siteMap));
-    let dlAnchorElem = document.getElementById('downloadAnchorElem');
-    if(dlAnchorElem) {
-      dlAnchorElem.setAttribute("href",     dataStr     );
-      dlAnchorElem.setAttribute("download", "site_map.json");
-      dlAnchorElem.click();
+      console.log(SiteDetails);
+      sites.value = SiteDetails;
+    } else {
+      return false;
     }
-  } 
+  } catch (error) {
+    console.log("Site List error:--" + error);
+  }
+}
+listOfSites();
+
+// Selected Site Id's collections list
+async function siteCollection(siteId: any) {
+  selectedSiteId.value = siteId.new;
+
+  let aj = new (ajax as any)();
+  let data = [
+    {
+      endPoint: "sites/" + selectedSiteId.value + "/collections",
+      params: selectedSiteId.value,
+    },
+  ];
+
+  let result = await aj.post("/CallApi.php", data);
+  if (result.status == 200) {
+    console.log(result);
+
+    collections.value = [];
+    let collectionDetails = [];
+    for (let i in result.data.collections) {
+      let st = result.data.collections[i];
+      collectionDetails.push({ value: st.id, label: st.displayName })
+    }
+    console.log(collectionDetails);
+    collections.value = collectionDetails;
+  }
+
+
+}
+
+
+function collectionChangeHandler(change: any) {
+  selectedCollectionId.value = change.new;
+  collectionFields(selectedCollectionId.value);
+}
+
+// Selected Collection's Field Type
+async function collectionFields(selectedCollectionId: any) {
+  let aj = new (ajax as any)();
+  let data = [
+    {
+      endPoint: "collections/" + selectedCollectionId,
+      params: selectedCollectionId,
+    },
+  ];
+
+  let result = await aj.post("/CallApi.php", data);
+
+
+  if (result.status == 200) {
+    let colData = [];
+    for (let i in result.data.fields) {
+      colData.push({ key: result.data.fields[i]['slug'], label: result.data.fields[i]['displayName'], item_type: result.data.fields[i]['type'] });
+    }
+    cols.value = colData;
+
+  } else {
+    return false;
+  }
+}
+
+let checkedItems: any = ref<Array<any>>([]);
+  
+function colsToDisplay(event: any) {
+
+  if (event.checked) {
+    checkedItems.value.push({
+      'key': event.id,
+      'label': event.value,
+    });
+    console.log("checkedItems", checkedItems.value);
+  } else {
+    // console.log('splice', checkedItems.value.indexOf(checkedItems.value));
+
+    console.log("find index id", checkedItems.value.splice(checkedItems.value.indexOf(event.id)));
+
+    // checkedItems.value.splice(checkedItems.value.indexOf(checkedItems.value));
+    // console.log("final checkedItems", checkedItems.value);
+
+  }
+}
+
+function clearCheckedValues() {
+  checkedItems.value = [];
+
+}
 
 </script>
 
-
-
 <template>
-  <div class="relative py-8">
-    
-    <div class="body min-h-screen genealogy-body  absolute inset-0 container relative  mx-auto bg-white shadow-xl shadow-slate-700/10 ring-1 ring-gray-900/5 
-    bg-[url(/img/grid.svg)] bg-top " >
-    <Zoomer>
-      <div class="">
-        <div class="genealogy-tree">
-          <ul class="tree">
-          <SitePageTree :node="siteMap" 
-          @changeInTree="handleChangeInTree" >
-          </SitePageTree>
-        </ul>
-        </div>
-      </div>
-    </Zoomer>
+  <div class="container mx-auto mt-5">
 
-    
-    
+    <div class="flex">
+      <SelectDropdown :options="sites" name="site" label="Select Site" @change="siteCollection" class="w-1/3">
+      </SelectDropdown>
+
+      <SelectDropdown :options="collections" name="collections" @change="collectionChangeHandler"
+        label="Select Collection" class="w-1/3 ml-2">
+      </SelectDropdown>
+
+      <Dropdown :options="cols" label="Select Columns to Display " class="w-1/3 ml-2" @allCheck="colsToDisplay"
+        @clearCheckedValues="clearCheckedValues">
+      </Dropdown>
+
+
+
     </div>
 
-    <div class="action flex flex-row-reverse">
-      <a id="downloadAnchorElem" style="display:none"></a>
-      <button type="button" @click="downloadJson"
-        class="text-white bg-yellow-400 hover:bg-yellow-500 focus:outline-none focus:ring-4 focus:ring-yellow-300 font-medium rounded-full text-sm px-5 py-2.5 text-center mr-2 mb-2 dark:focus:ring-yellow-900">
-        Download Json
-      </button>
-    </div>
-  
-    <footer class="py-6 text-sm text-center text-gray-700">
-        <p>
-          Site Editor by
-          <a class="underline" href="">@Rupesh</a> &copy; 2022-{{
-            thisYear
-          }}.
-          <template v-if="BUILD_DATE"> Site built {{ BUILD_DATE.toLocaleDateString() }}. </template>
-          <template v-else> Development mode. </template>
-        </p>
-      </footer>
+    <CollectionEditor :selectedSiteId=selectedSiteId :selectedCollectionId=selectedCollectionId
+      :checkedItems=checkedItems></CollectionEditor>
+
   </div>
 </template>
